@@ -52,42 +52,41 @@ RUN apt-get install -y  \
 
 
 RUN mkdir /data /config
+# Add user biodocker with password biodocker
+RUN groupadd fuse && \
+    useradd --create-home --shell /bin/bash --user-group --uid 1000 --groups sudo,fuse biodocker && \
+    echo `echo "biodocker\nbiodocker\n" | passwd biodocker` && \
+    chown biodocker:biodocker /data && \
+    chown biodocker:biodocker /config
+
+# Change user
+USER biodocker
+
+ENV BIN_FOLDER=/home/biodocker/bin
+ENV RESIST_TYPE_FOLDER=/home/biodocker/resistType_docker
 
 # Install bowtie2
-
-ENV ZIP=bowtie2-2.2.9-linux-x86_64.zip
-ENV URL=https://github.com/BenLangmead/bowtie2/releases/download/v2.2.9/
-ENV FOLDER=bowtie2-2.2.9
-ENV DST=/home/bin
-RUN mkdir $DST
-RUN wget $URL/$ZIP -O $DST/$ZIP && \
-    unzip $DST/$ZIP -d $DST && \
-    rm $DST/$ZIP && \
-    mv $DST/$FOLDER/* $DST && \
-    rmdir $DST/$FOLDER
-
-ENV PATH $DST:$PATH
+RUN mkdir -p $BIN_FOLDER &&\
+    cd $BIN_FOLDER &&\
+    wget https://github.com/BenLangmead/bowtie2/releases/download/v2.2.9/bowtie2-2.2.9-linux-x86_64.zip &&\
+    unzip bowtie2-2.2.9-linux-x86_64.zip -d ${BIN_FOLDER}
 
 # get resistType scripts
-ENV DST=/home/
-ENV FOLDER=resistType_docker
-ENV URL=https://github.com/hangphan/$FOLDER/
-RUN echo "cache-bust" && git clone $URL $DST/$FOLDER
-ENV PATH $DST/$FOLDER/bin:$DST/$FOLDER/src/:$PATH
+RUN echo "cache-bust" &&\
+   git clone https://github.com/hangphan/resistType_docker ${RESIST_TYPE_FOLDER}
 
-ENV DST=/home/$FOLDER/resources
-ENV ZIP=SPAdes-3.10.0-Linux.tar.gz
-RUN mkdir -p $DST/ && \
-    tar -zxvf $DST/$ZIP  -C /home/$FOLDER/resources/
-    ENV PATH $DST/SPAdes-3.10.0-Linux/bin:$PATH
+# ENV path for bowtie2
+ENV PATH ${BIN_FOLDER}/bowtie2-2.2.9:$PATH
+# ENV path for scripts
+ENV PATH ${RESIST_TYPE_FOLDER}/bin:${RESIST_TYPE_FOLDER}/src:$PATH
 
-RUN groupadd resisttype-users && \
-    useradd --create-home --shell /bin/bash --user-group --uid 1000 --groups sudo,resisttype-users rusers && \
-    echo `echo "rusers\nrusers\n" | passwd rusers` && \
-    chown rusers:rusers /data
+RUN cd $RESIST_TYPE_FOLDER/resources &&\
+    tar -zxvf SPAdes-3.10.0-Linux.tar.gz -C $RESIST_TYPE_FOLDER/resources/ &&\
+    rm SPAdes-3.10.0-Linux.tar.gz
 
-USER rusers
+# ENV path for SPAdes
+ENV PATH $RESIST_TYPE_FOLDER/resources/SPAdes-3.10.0-Linux/bin:$PATH
 
 WORKDIR /data/
 VOLUME /data/
-CMD ["resistType_v0.1.py -h "]
+CMD ["resistType_v0.1.py", "-h"]
